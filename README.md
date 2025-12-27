@@ -1,0 +1,6 @@
+- accept csv file.
+- identify if its a summary for the bank account or credit card expenses. depending on the type of summary, the signal (minus, plus) might be fuzzy. credit card expenses are listed as positive numbers and the payment is a negative number. i think this is the case bc credit card records are added as additional value or credit for the account balance. so maybe we should make the calculations a little bit different from just a simple sum.
+- if its bank account summary, then invert record signals to positive and subtract in the total in the end.
+- keep track of columns Data, Valor, Descrição for bank account summary and date, amount, title for credit card summary. normalize it to date, amount and title.
+- extract data from the file and store it in an object.
+- read the title and categorize it based on a pre-defined table of known titles. store the known titles in a separate file as a local db. we can make adjustments in the end of the process based on the users input. if the title is not known, keep track of unrecognized records and add them to a uncategorized category.
