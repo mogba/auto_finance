@@ -1,8 +1,11 @@
 import * as fs from "fs";
+import { resolve } from "path";
 import { categorizeTitle } from "../utils/categorization.js";
+import { INPUT_FILES_DIRECTORY, RESOURCE_FILES_DIRECTORY } from "../utils/constants.js";
 
 // Read the CSV file
-const csvContent = fs.readFileSync("../../summaries/summary_credit.csv", "utf-8");
+const csvFilePath = resolve(`${INPUT_FILES_DIRECTORY}/summary_credit.csv`);
+const csvContent = fs.readFileSync(csvFilePath, "utf-8");
 const lines = csvContent.split("\n").filter(line => line.trim() !== "");
 
 // Extract unique titles (skip header and empty lines)
@@ -29,14 +32,14 @@ const categoriesList = Array.from(categories).sort();
 
 // Write categorized titles to JSON
 fs.writeFileSync(
-  "../../resources/categorized_titles.json",
+  resolve(`${RESOURCE_FILES_DIRECTORY}/categorized_titles.json`),
   JSON.stringify(categorizedTitles, null, 2),
   "utf-8"
 );
 
 // Write categories to JSON
 fs.writeFileSync(
-  "../../resources/categories.json",
+  resolve(`${RESOURCE_FILES_DIRECTORY}/categories.json`),
   JSON.stringify(categoriesList, null, 2),
   "utf-8"
 );

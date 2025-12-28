@@ -1,14 +1,16 @@
 import * as fs from "fs";
+import { resolve } from "path";
 import { Readable } from 'stream';
 import * as XLSX from "xlsx/xlsx.mjs";
 import { categorizeTitle } from "./src/utils/categorization.js";
+import { INPUT_FILES_DIRECTORY } from "~/utils/constants.js";
 
 // load "fs" for readFile and writeFile support
 XLSX.set_fs(fs);
 // load 'stream' for stream support
 XLSX.stream.set_readable(Readable);
 
-const csvFileLocation = "./summaries/summary_credit.csv";
+const csvFileLocation = resolve(`${INPUT_FILES_DIRECTORY}/summary_credit.csv`);
 
 function extractCsvFileContents(inputCsvFileLocation: string) {
   const workbook = XLSX.readFile(inputCsvFileLocation);
@@ -18,8 +20,6 @@ function extractCsvFileContents(inputCsvFileLocation: string) {
 }
 
 const worksheet = extractCsvFileContents(csvFileLocation);
-
-// console.log("\nRaw JSON worksheet:\n\n", JSON.stringify(worksheet))
 
 function getValueByCellType(cell: any): string | undefined {
   switch (cell.t) {
@@ -84,8 +84,6 @@ function parseCsvFileContentsToObject(inputWorksheet: XLSX.WorkSheet): { [rowNum
 
 const rows = parseCsvFileContentsToObject(worksheet);
 
-// console.log("\nRows:\n\n", rows);
-
 function categorizeTransactions(inputRows: { [rowNumber: string]: { date: string; title: string; amount: number; }; }) {
   const categorizedRows: { [rowNumber: string]: { date: string; title: string; category: string; amount: number; } } = {};
 
@@ -97,8 +95,6 @@ function categorizeTransactions(inputRows: { [rowNumber: string]: { date: string
 }
 
 const categorizedRows: { [rowNumber: string]: { date: string; title: string; category: string; amount: number; } } = categorizeTransactions(rows);
-
-// console.log("\nCategorized rows:\n\n", categorizedRows);
 
 function summarizeTransactions(inputCategorizedRows: { [rowNumber: string]: { date: string; title: string; category: string; amount: number; } }): { totalAmount: number; summarizedTransactions: { [category: string]: { category: string; amount: number; transactions: { date: string; title: string; category: string; amount: number; }[]; }; } } {
   const summarizedTransactions: { [category: string]: { category: string; amount: number; transactions: { date: string; title: string; category: string; amount: number; }[]; }; } = {};

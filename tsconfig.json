@@ -10,9 +10,15 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "typeRoots": ["./node_modules/@types"]
+    "typeRoots": ["./node_modules/@types"],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"],
+      "~/input/*": ["./input/*"],
+      "~/output/*": ["./output/*"],
+      "~/resources/*": ["./resources/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.d.ts"],
   "exclude": ["node_modules"]
 }
-
