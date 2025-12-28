@@ -18,7 +18,7 @@ function loadCategorizedTitles(): Array<{ pattern: string; category: string }> {
     return titlePatterns;
   }
 
-  const filePath = resolve(RESOURCE_FILES_DIRECTORY, "categorized_titles.json");
+  const filePath = resolve(RESOURCE_FILES_DIRECTORY, "categories_db.json");
   const fileContent = fs.readFileSync(filePath, "utf-8");
   const categorizedTitles: CategorizedTitle[] = JSON.parse(fileContent);
 
@@ -55,7 +55,7 @@ export function invalidateCategorizationCache(): void {
 }
 
 export function updateCategorizedTitles(updates: Array<{ title: string; category: string }>): void {
-  const filePath = resolve(RESOURCE_FILES_DIRECTORY, "categorized_titles.json");
+  const filePath = resolve(RESOURCE_FILES_DIRECTORY, "categories_db.json");
   
   let categorizedTitles: CategorizedTitle[] = [];
   if (fs.existsSync(filePath)) {

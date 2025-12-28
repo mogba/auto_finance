@@ -27,19 +27,8 @@ const categorizedTitles = Array.from(titles).map(title => ({
   category: categorizeTitle(title)
 }));
 
-// Get all unique categories
-const categories = new Set(categorizedTitles.map(item => item.category));
-const categoriesList = Array.from(categories).sort();
-
 // Write categorized titles to JSON
-writeFile(`${RESOURCE_FILES_DIRECTORY}/categorized_titles.json`, categorizedTitles);
-
-// Write categories to JSON
-writeFile(`${RESOURCE_FILES_DIRECTORY}/categories.json`, categoriesList);
+writeFile(`${RESOURCE_FILES_DIRECTORY}/categories_db.json`, categorizedTitles);
 
 console.log(`Categorized ${categorizedTitles.length} unique titles`);
-console.log(`Created ${categoriesList.length} categories:`, categoriesList.join(", "));
-console.log("Files created:");
-console.log("  - categorized_titles.json");
-console.log("  - categories.json");
-
+console.log("Created file categories_db.json");
