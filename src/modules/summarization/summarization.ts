@@ -51,21 +51,6 @@ function groupAndSumAmountByCategory(
   return groupedTransactions;
 }
 
-export function summarizeTransactions(
-  transactions: {
-    [rowNumber: string]: {
-        date: string;
-        title: string;
-        amount: number;
-    };
-}): { totalAmount: number; summarizedTransactions: { [category: string]: { category: string; amount: number; transactions: { date: string; title: string; category: string; amount: number; }[]; }; } } {
-  const categorizedTransactions = addCategory(transactions);
-  const groupedTransactions = groupAndSumAmountByCategory(categorizedTransactions);
-  const totalAmount = calculateTotalAmount(groupedTransactions);
-
-  return { totalAmount, summarizedTransactions: groupedTransactions };
-}
-
 function calculateTotalAmount(groupedTransactions: {
   [category: string]: {
     category: string; amount: number; transactions: {
@@ -85,3 +70,17 @@ function calculateTotalAmount(groupedTransactions: {
   return totalAmount;
 }
 
+export function summarizeTransactions(
+  transactions: {
+    [rowNumber: string]: {
+        date: string;
+        title: string;
+        amount: number;
+    };
+}): { totalAmount: number; summarizedTransactions: { [category: string]: { category: string; amount: number; transactions: { date: string; title: string; category: string; amount: number; }[]; }; } } {
+  const categorizedTransactions = addCategory(transactions);
+  const groupedTransactions = groupAndSumAmountByCategory(categorizedTransactions);
+  const totalAmount = calculateTotalAmount(groupedTransactions);
+
+  return { totalAmount, summarizedTransactions: groupedTransactions };
+}
