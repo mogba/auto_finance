@@ -49,3 +49,40 @@ export function categorizeTitle(title: string): string {
 
   return "Other";
 }
+
+export function invalidateCategorizationCache(): void {
+  titlePatterns = null;
+}
+
+export function updateCategorizedTitles(updates: Array<{ title: string; category: string }>): void {
+  const filePath = resolve(RESOURCE_FILES_DIRECTORY, "categorized_titles.json");
+  
+  let categorizedTitles: CategorizedTitle[] = [];
+  if (fs.existsSync(filePath)) {
+    const fileContent = fs.readFileSync(filePath, "utf-8");
+    categorizedTitles = JSON.parse(fileContent);
+  }
+
+  const titleMap = new Map<string, CategorizedTitle>();
+  for (const entry of categorizedTitles) {
+    const normalized = normalizeTitle(entry.title);
+    titleMap.set(normalized, entry);
+  }
+
+  for (const { title, category } of updates) {
+    const normalized = normalizeTitle(title);
+    titleMap.set(normalized, { title, category });
+  }
+
+  const updatedTitles: CategorizedTitle[] = Array.from(titleMap.values()).sort((a, b) => 
+    a.title.localeCompare(b.title)
+  );
+
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify(updatedTitles, null, 2),
+    "utf-8"
+  );
+
+  invalidateCategorizationCache();
+}

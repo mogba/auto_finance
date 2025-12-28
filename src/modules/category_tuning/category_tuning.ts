@@ -1,6 +1,7 @@
 import { sumFractions } from '~/utils/math.js';
 import { ReadlineInterface } from '~/utils/readline.js';
 import { CategorizedTransaction, SummarizedTransactions } from '~/utils/summarization.js';
+import { updateCategorizedTitles } from '~/utils/categorization.js';
 
 interface CategoryMapEntry {
   category: string;
@@ -253,6 +254,12 @@ export async function tuneCategories(summarizedTransactions: SummarizedTransacti
     if (input.trim() === "" && changes.length > 0) {
       const newCategoryMap = rebuildCategoryMap(summarizedTransactions, changes);
       printCategoryMap(newCategoryMap);
+
+      const titleUpdates = changes.map(change => ({
+        title: change.transactionTitle,
+        category: change.toCategoryName
+      }));
+      updateCategorizedTitles(titleUpdates);
 
       return rebuildSummarizedTransactions(summarizedTransactions, changes);
     }
