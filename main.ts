@@ -3,7 +3,7 @@ import { readTransactionsFromCsvFile } from "~/modules/csv_processing/csv_proces
 import { INPUT_FILES_DIRECTORY, OUTPUT_FILES_DIRECTORY } from "~/utils/constants.js";
 import { writeFile } from "~/utils/write_file.js";
 import { tuneCategories } from "~/modules/category_tuning/category_tuning.js";
-import { ReadlineInterface } from "~/utils/readline.js";
+import { SummarizedTransactions } from "~/utils/summarization.js";
 
 const transactions = readTransactionsFromCsvFile(`${INPUT_FILES_DIRECTORY}/summary_credit.csv`);
 const summarizedTransactions = summarizeTransactions(transactions);
@@ -13,18 +13,7 @@ writeFile(outputFileLocation, summarizedTransactions)
 
 console.log(`\nSummarized transactions written to file ${outputFileLocation}.`);
 
-let modifiedSummarizedTransactions: {
-  [category: string]: {
-      category: string;
-      amount: number;
-      transactions: {
-          date: string;
-          title: string;
-          category: string;
-          amount: number;
-      }[];
-  };
-} | null = summarizedTransactions.summarizedTransactions;
+let modifiedSummarizedTransactions: SummarizedTransactions | null = summarizedTransactions.summarizedTransactions;
 
 while (true) {
   modifiedSummarizedTransactions = await tuneCategories(modifiedSummarizedTransactions);
@@ -39,5 +28,6 @@ while (true) {
   };
 
   writeFile(outputFileLocation, updatedSummarizedTransactions);
+  
   console.log(`\nUpdated summarized transactions written to file ${outputFileLocation}.`);
 }

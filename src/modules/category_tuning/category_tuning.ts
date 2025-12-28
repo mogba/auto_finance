@@ -1,24 +1,34 @@
+import { sumFractions } from '~/utils/math.js';
 import { ReadlineInterface } from '~/utils/readline.js';
-
-interface Transaction {
-  date: string;
-  title: string;
-  category: string;
-  amount: number;
-}
+import { CategorizedTransaction, SummarizedTransactions } from '~/utils/summarization.js';
 
 interface CategoryMapEntry {
   category: string;
-  transactions: Transaction[];
+  transactions: CategorizedTransaction[];
 }
 
 interface ChangeRequest {
   fromCategoryNumber: number;
-  transactionIndex: number;
+  transactionNumber: number;
   toCategoryNumber: number;
   transactionTitle: string;
   fromCategoryName: string;
   toCategoryName: string;
+}
+
+function createCategoryMap(summarizedTransactions: SummarizedTransactions) {
+  const categoryMap: Map<number, CategoryMapEntry> = new Map();
+
+  let categoryNumber = 1;
+
+  for (const [category, data] of Object.entries(summarizedTransactions)) {
+    categoryMap.set(categoryNumber, {
+      category,
+      transactions: data.transactions
+    });
+    categoryNumber += 1;
+  }
+  return categoryMap;
 }
 
 function printCategoryMap(categoryMap: Map<number, CategoryMapEntry>) {
@@ -27,115 +37,22 @@ function printCategoryMap(categoryMap: Map<number, CategoryMapEntry>) {
   for (const [key, value] of categoryMap.entries()) {
     console.log(`[${key}] - ${value.category}`);
 
-    let transactionIndex = 1;
+    let transactionNumber = 1;
 
     for (const transaction of value.transactions) {
-      console.log(`    [${transactionIndex}] - ${transaction.title}`);
-      transactionIndex += 1;
+      console.log(`    [${transactionNumber}] - ${transaction.title}`);
+      transactionNumber += 1;
     }
   }
 }
 
-function recalculateCategoryAmount(transactions: Transaction[]): number {
-  let amount = 0;
-  for (const transaction of transactions) {
-    amount = Number((((amount * 100) + (transaction.amount * 100)) / 100).toFixed(2));
-  }
-  return amount;
-}
+async function askForCategoryChanges(): Promise<string> {
+  const readlineInterface = new ReadlineInterface();
 
-function rebuildSummarizedTransactions(
-  summarizedTransactions: {
-    [category: string]: {
-      category: string;
-      amount: number;
-      transactions: Transaction[];
-    };
-  },
-  changes: ChangeRequest[]
-): {
-  [category: string]: {
-    category: string;
-    amount: number;
-    transactions: Transaction[];
-  };
-} {
-  // Create a deep copy of summarizedTransactions
-  const modifiedTransactions: {
-    [category: string]: {
-      category: string;
-      amount: number;
-      transactions: Transaction[];
-    };
-  } = {};
+  const rawInput = await readlineInterface.openQuestion("\nEnter category-transaction to change (e.g., '1-5') or press Enter to finish: ");
+  readlineInterface.closeQuestion();
 
-  for (const [category, data] of Object.entries(summarizedTransactions)) {
-    modifiedTransactions[category] = {
-      category: data.category,
-      amount: data.amount,
-      transactions: data.transactions.map(t => ({ ...t }))
-    };
-  }
-
-  // Apply changes
-  for (const change of changes) {
-    const sourceCategory = change.fromCategoryName;
-    const targetCategory = change.toCategoryName;
-
-    // Find the transaction in the source category
-    const sourceCategoryData = modifiedTransactions[sourceCategory];
-    if (!sourceCategoryData) {
-      continue;
-    }
-
-    // Find the transaction by title (assuming unique titles within a category)
-    const transactionIndex = sourceCategoryData.transactions.findIndex(
-      t => t.title === change.transactionTitle
-    );
-
-    if (transactionIndex === -1) {
-      continue;
-    }
-
-    const transaction = sourceCategoryData.transactions[transactionIndex];
-
-    // Remove from source category
-    modifiedTransactions[sourceCategory].transactions.splice(transactionIndex, 1);
-
-    // Update transaction's category
-    transaction.category = targetCategory;
-
-    // Add to target category (create if it doesn't exist)
-    if (!modifiedTransactions[targetCategory]) {
-      modifiedTransactions[targetCategory] = {
-        category: targetCategory,
-        amount: 0,
-        transactions: []
-      };
-    }
-    modifiedTransactions[targetCategory].transactions.push(transaction);
-  }
-
-  // Recalculate amounts for all categories
-  const result: {
-    [category: string]: {
-      category: string;
-      amount: number;
-      transactions: Transaction[];
-    };
-  } = {};
-
-  for (const [category, data] of Object.entries(modifiedTransactions)) {
-    if (data.transactions.length > 0) {
-      result[category] = {
-        category: data.category,
-        amount: recalculateCategoryAmount(data.transactions),
-        transactions: data.transactions
-      };
-    }
-  }
-
-  return result;
+  return rawInput.trim();
 }
 
 function rebuildCategoryMap(
@@ -143,18 +60,17 @@ function rebuildCategoryMap(
     [category: string]: {
       category: string;
       amount: number;
-      transactions: Transaction[];
+      transactions: CategorizedTransaction[];
     };
   },
   changes: ChangeRequest[]
 ): Map<number, CategoryMapEntry> {
   const modifiedTransactions = rebuildSummarizedTransactions(summarizedTransactions, changes);
 
-  // Rebuild category map (only include categories with transactions)
   const categoryMap: Map<number, CategoryMapEntry> = new Map();
   let categoryNumber = 1;
 
-  for (const [category, data] of Object.entries(modifiedTransactions)) {
+  for (const [_category, data] of Object.entries(modifiedTransactions)) {
     if (data.transactions.length > 0) {
       categoryMap.set(categoryNumber, {
         category: data.category,
@@ -167,105 +83,202 @@ function rebuildCategoryMap(
   return categoryMap;
 }
 
-export async function tuneCategories(summarizedTransactions: {
-  [category: string]: {
-      category: string;
-      amount: number;
-      transactions: Transaction[];
-  };
-}): Promise<{
-  [category: string]: {
-      category: string;
-      amount: number;
-      transactions: Transaction[];
-  };
-} | null> {
-  const categoryMap: Map<number, CategoryMapEntry> = new Map();
+function deepCopy(transactions: SummarizedTransactions) {
+  const copy: SummarizedTransactions = {};
 
-  let categoryNumber = 1;
+  for (const [category, data] of Object.entries(transactions)) {
+    copy[category] = {
+      category: data.category,
+      amount: data.amount,
+      transactions: data.transactions.map(t => ({ ...t }))
+    };
+  }
+  
+  return copy;
+}
 
-  for (const [category, data] of Object.entries(summarizedTransactions)) {
-    categoryMap.set(categoryNumber, {
-      category,
-      transactions: data.transactions
-    });
-    categoryNumber += 1;
+function sumTransactionAmounts(transactions: CategorizedTransaction[]): number {
+  let amount = 0;
+
+  for (const transaction of transactions) {
+    amount = sumFractions(amount, transaction.amount);
   }
 
-  printCategoryMap(categoryMap);
+  return amount;
+}
 
+function recalculateAmounts(modifiedTransactions: SummarizedTransactions) {
+  const result: SummarizedTransactions = {};
+
+  for (const [category, data] of Object.entries(modifiedTransactions)) {
+    if (data.transactions.length > 0) {
+      result[category] = {
+        category: data.category,
+        amount: sumTransactionAmounts(data.transactions),
+        transactions: data.transactions
+      };
+    }
+  }
+
+  return result;
+}
+
+function rebuildSummarizedTransactions(summarizedTransactions: SummarizedTransactions, changes: ChangeRequest[]): SummarizedTransactions {
+  const modifiedTransactions = deepCopy(summarizedTransactions);
+
+  for (const change of changes) {
+    const sourceCategory = change.fromCategoryName;
+    const sourceCategoryData = modifiedTransactions[sourceCategory];
+    const targetCategory = change.toCategoryName;
+    const transactionNumber = sourceCategoryData?.transactions.findIndex(t => t.title === change.transactionTitle);
+
+    if (!sourceCategoryData || transactionNumber === -1) {
+      continue;
+    }
+
+    const transaction = sourceCategoryData.transactions[transactionNumber];
+    modifiedTransactions[sourceCategory].transactions.splice(transactionNumber, 1);
+    transaction.category = targetCategory;
+
+    if (!modifiedTransactions[targetCategory]) {
+      modifiedTransactions[targetCategory] = {
+        category: targetCategory,
+        amount: 0,
+        transactions: []
+      };
+    }
+
+    modifiedTransactions[targetCategory].transactions.push(transaction);
+  }
+
+  return recalculateAmounts(modifiedTransactions);
+}
+
+function validateInputAndGetSourceCategoryTransaction(input: string):
+  { isValid: false; fromCategoryNumber?: undefined; transactionNumber?: undefined } |
+  { isValid: true; fromCategoryNumber: number; transactionNumber: number }
+{
+  const match = input.trim().match(/^(\d+)-(\d+)$/);
+
+  if (!match) {
+    console.log("Invalid format. Please use 'category-transaction' format (e.g., '1-5')");
+    return { isValid: false };
+  }
+
+  const fromCategoryNumber = parseInt(match[1], 10);
+  const transactionNumber = parseInt(match[2], 10);
+
+  return { isValid: true, fromCategoryNumber, transactionNumber };
+}
+
+function doesCategoryExist(categoryMap: Map<number, CategoryMapEntry>, categoryNumber: number) {
+  if (!categoryMap.get(categoryNumber)) {
+    console.log(`Category ${categoryNumber} does not exist.`);
+    return false;
+  }
+
+  return true;
+}
+
+function areFromCategoryAndTransactionNumbersValid({
+  fromCategoryNumber,
+  transactionNumber,
+  categoryMap
+}: {
+  fromCategoryNumber: number;
+  transactionNumber: number;
+  categoryMap: Map<number, CategoryMapEntry>
+}) {
+  const categoryEntry = categoryMap.get(fromCategoryNumber)!;
+
+  if (!doesCategoryExist(categoryMap, fromCategoryNumber)) {
+    return false;
+  }
+
+  if (transactionNumber < 1 || transactionNumber > categoryEntry.transactions.length) {
+    console.log(`Transaction number ${transactionNumber} is out of range for category ${fromCategoryNumber}.`);
+    return false;
+  }
+
+  return true;
+}
+
+async function getToCategoryNumber(transactionTitle: string): Promise<number> {
   const readlineInterface = new ReadlineInterface();
+
+  const targetCategoryInput = await readlineInterface.openQuestion(`Move transaction "${transactionTitle}" to which category number? `);
+  const toCategoryNumber = parseInt(targetCategoryInput.trim(), 10);
+  
+  return toCategoryNumber;
+}
+
+function isToCategoryNumberValid({
+  toCategoryNumber,
+  fromCategoryNumber,
+  categoryMap
+}: {
+  toCategoryNumber: number;
+  fromCategoryNumber: number;
+  categoryMap: Map<number, CategoryMapEntry>;
+}) {
+  if (isNaN(toCategoryNumber) || !categoryMap.has(toCategoryNumber)) {
+    console.log(`Invalid category number ${toCategoryNumber}.`);
+    return false;
+  }
+
+  if (fromCategoryNumber === toCategoryNumber) {
+    console.log("Transaction is already in that category.");
+    return false;
+  }
+
+  if (!doesCategoryExist(categoryMap, toCategoryNumber)) {
+    return false;
+  }
+
+  return true;
+}
+
+export async function tuneCategories(summarizedTransactions: SummarizedTransactions): Promise<SummarizedTransactions | null> {
+  const categoryMap: Map<number, CategoryMapEntry> = createCategoryMap(summarizedTransactions);
+  printCategoryMap(categoryMap);
 
   const changes: ChangeRequest[] = [];
 
   while (true) {
-    const input = await readlineInterface.openQuestion("\nEnter category-transaction to change (e.g., '1-5') or press Enter to finish: ");
+    const input = await askForCategoryChanges();
 
-    if (input.trim() === '') {
-      if (changes.length === 0) {
-        readlineInterface.closeQuestion();
-        return null;
-      } else {
-        // Rebuild category map with changes
-        const newCategoryMap = rebuildCategoryMap(summarizedTransactions, changes);
-        printCategoryMap(newCategoryMap);
-        readlineInterface.closeQuestion();
-        // Return the modified summarized transactions
-        return rebuildSummarizedTransactions(summarizedTransactions, changes);
-      }
+    if (input.trim() === "" && changes.length === 0) {
+      return null;
+    }
+    if (input.trim() === "" && changes.length > 0) {
+      const newCategoryMap = rebuildCategoryMap(summarizedTransactions, changes);
+      printCategoryMap(newCategoryMap);
+
+      return rebuildSummarizedTransactions(summarizedTransactions, changes);
     }
 
-    // Parse input format "category-transaction"
-    const match = input.trim().match(/^(\d+)-(\d+)$/);
-    if (!match) {
-      console.log("Invalid format. Please use 'category-transaction' format (e.g., '1-5')");
+    const { isValid, fromCategoryNumber, transactionNumber } = validateInputAndGetSourceCategoryTransaction(input);
+
+    if (!isValid || !areFromCategoryAndTransactionNumbersValid({ fromCategoryNumber, transactionNumber, categoryMap })) {
       continue;
     }
 
-    const fromCategoryNumber = parseInt(match[1], 10);
-    const transactionIndex = parseInt(match[2], 10);
-
-    const categoryEntry = categoryMap.get(fromCategoryNumber);
-    if (!categoryEntry) {
-      console.log(`Category ${fromCategoryNumber} does not exist.`);
-      continue;
-    }
-
-    if (transactionIndex < 1 || transactionIndex > categoryEntry.transactions.length) {
-      console.log(`Transaction index ${transactionIndex} is out of range for category ${fromCategoryNumber}.`);
-      continue;
-    }
-
-    const transaction = categoryEntry.transactions[transactionIndex - 1];
+    const categoryEntry = categoryMap.get(fromCategoryNumber)!;
+    const transaction = categoryEntry.transactions[transactionNumber - 1];
     const transactionTitle = transaction.title;
     const fromCategoryName = categoryEntry.category;
 
-    // Ask for target category
-    const targetCategoryInput = await readlineInterface.openQuestion(`Move transaction "${transactionTitle}" to which category number? `);
-    const toCategoryNumber = parseInt(targetCategoryInput.trim(), 10);
+    const toCategoryNumber = await getToCategoryNumber(transactionTitle);
 
-    if (isNaN(toCategoryNumber) || !categoryMap.has(toCategoryNumber)) {
-      console.log(`Invalid category number ${toCategoryNumber}.`);
+    if (!isToCategoryNumberValid({ toCategoryNumber, fromCategoryNumber, categoryMap })) {
       continue;
     }
 
-    if (fromCategoryNumber === toCategoryNumber) {
-      console.log("Transaction is already in that category.");
-      continue;
-    }
+    const toCategoryName = categoryMap.get(toCategoryNumber)!.category;
 
-    const toCategoryEntry = categoryMap.get(toCategoryNumber);
-    if (!toCategoryEntry) {
-      console.log(`Category ${toCategoryNumber} does not exist.`);
-      continue;
-    }
-
-    const toCategoryName = toCategoryEntry.category;
-
-    // Store the change
     changes.push({
       fromCategoryNumber,
-      transactionIndex,
+      transactionNumber,
       toCategoryNumber,
       transactionTitle,
       fromCategoryName,

@@ -1,14 +1,26 @@
 import { categorizeTitle } from "~/utils/categorization.js";
+import { sumFractions } from "~/utils/math.js";
+import { CategorizedTransaction, SummarizedTransactions } from "~/utils/summarization.js";
 
-function addCategory(inputRows: { [rowNumber: string]: { date: string; title: string; amount: number; }; }): {
+type RowNumberedUncategorizedTransactions = {
   [rowNumber: string]: {
-      date: string;
-      title: string;
-      category: string;
-      amount: number;
+    date: string;
+    title: string;
+    amount: number;
   };
-} {
-  const categorizedRows: { [rowNumber: string]: { date: string; title: string; category: string; amount: number; } } = {};
+};
+
+type RowNumberedCategorizedTransactions = {
+  [rowNumber: string]: CategorizedTransaction;
+};
+
+type Summary = {
+  totalAmount: number;
+  summarizedTransactions: SummarizedTransactions;
+};
+
+function addCategory(inputRows: RowNumberedUncategorizedTransactions): RowNumberedCategorizedTransactions {
+  const categorizedRows: RowNumberedCategorizedTransactions = {};
 
   for (const [rowNumber, rowData] of Object.entries(inputRows)) {
     categorizedRows[rowNumber] = { ...rowData, category: categorizeTitle(rowData.title) };
@@ -17,32 +29,12 @@ function addCategory(inputRows: { [rowNumber: string]: { date: string; title: st
   return categorizedRows;
 }
 
-function groupAndSumAmountByCategory(
-  ungroupedTransactions: {
-    [rowNumber: string]: {
-        date: string;
-        title: string;
-        category: string;
-        amount: number;
-    };
-}
-): {
-  [category: string]: {
-      category: string;
-      amount: number;
-      transactions: {
-          date: string;
-          title: string;
-          category: string;
-          amount: number;
-      }[];
-  };
-} {
-  const groupedTransactions: { [category: string]: { category: string; amount: number; transactions: { date: string; title: string; category: string; amount: number; }[]; }; } = {};
+function groupAndSumAmountByCategory(ungroupedTransactions: RowNumberedCategorizedTransactions): SummarizedTransactions {
+  const groupedTransactions: SummarizedTransactions = {};
 
   for (const [_rowNumber, rowData] of Object.entries(ungroupedTransactions)) {
     const lastCategoryOccurrence = groupedTransactions[rowData.category] || { amount: 0, transactions: [] };
-    const amount = Number((((lastCategoryOccurrence.amount * 100) + (rowData.amount * 100)) / 100).toFixed(2));
+    const amount = sumFractions(lastCategoryOccurrence.amount, rowData.amount);
     const transactions = [...lastCategoryOccurrence.transactions, rowData];
 
     groupedTransactions[rowData.category] = { category: rowData.category, amount, transactions };
@@ -51,33 +43,17 @@ function groupAndSumAmountByCategory(
   return groupedTransactions;
 }
 
-function calculateTotalAmount(groupedTransactions: {
-  [category: string]: {
-    category: string; amount: number; transactions: {
-      date: string;
-      title: string;
-      category: string;
-      amount: number;
-    }[];
-  };
-}): number {
+function calculateTotalAmount(groupedTransactions: SummarizedTransactions): number {
   let totalAmount = 0;
 
   for (const [_category, { amount: categoryAmount }] of Object.entries(groupedTransactions)) {
-    totalAmount = Number((((totalAmount * 100) + (categoryAmount * 100)) / 100).toFixed(2));
+    totalAmount = sumFractions(totalAmount, categoryAmount);
   }
 
   return totalAmount;
 }
 
-export function summarizeTransactions(
-  transactions: {
-    [rowNumber: string]: {
-        date: string;
-        title: string;
-        amount: number;
-    };
-}): { totalAmount: number; summarizedTransactions: { [category: string]: { category: string; amount: number; transactions: { date: string; title: string; category: string; amount: number; }[]; }; } } {
+export function summarizeTransactions(transactions: RowNumberedUncategorizedTransactions): Summary {
   const categorizedTransactions = addCategory(transactions);
   const groupedTransactions = groupAndSumAmountByCategory(categorizedTransactions);
   const totalAmount = calculateTotalAmount(groupedTransactions);
