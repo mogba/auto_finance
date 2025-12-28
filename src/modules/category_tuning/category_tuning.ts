@@ -11,10 +11,11 @@ interface CategoryMapEntry {
 interface ChangeRequest {
   fromCategoryNumber: number;
   transactionNumber: number;
-  toCategoryNumber: number;
+  toCategoryNumber: number | null;
   transactionTitle: string;
   fromCategoryName: string;
   toCategoryName: string;
+  isNewCategory: boolean;
 }
 
 function createCategoryMap(summarizedTransactions: SummarizedTransactions) {
@@ -204,39 +205,82 @@ function areFromCategoryAndTransactionNumbersValid({
   return true;
 }
 
-async function getToCategoryNumber(transactionTitle: string): Promise<number> {
+async function getTargetCategory(
+  transactionTitle: string,
+  categoryMap: Map<number, CategoryMapEntry>
+): Promise<{ isNumber: true; categoryNumber: number } | { isNumber: false; categoryName: string } | null> {
   const readlineInterface = new ReadlineInterface();
 
-  const targetCategoryInput = await readlineInterface.openQuestion(`Move transaction "${transactionTitle}" to which category number? `);
-  const toCategoryNumber = parseInt(targetCategoryInput.trim(), 10);
+  const targetCategoryInput = await readlineInterface.openQuestion(
+    `Move transaction "${transactionTitle}" to which category number (or type a new category name)? `
+  );
+  readlineInterface.closeQuestion();
   
-  return toCategoryNumber;
+  const trimmedInput = targetCategoryInput.trim();
+  const categoryNumber = parseInt(trimmedInput, 10);
+  
+  // If it's a valid number
+  if (!isNaN(categoryNumber)) {
+    // Check if it exists in the map
+    if (categoryMap.has(categoryNumber)) {
+      return { isNumber: true, categoryNumber };
+    } else {
+      // Number doesn't exist - show error and return null to retry
+      console.log(`Category number ${categoryNumber} does not exist. Please enter a valid category number or type a new category name.`);
+      return null;
+    }
+  }
+  
+  // Not a number - treat it as a new category name
+  return { isNumber: false, categoryName: trimmedInput };
 }
 
-function isToCategoryNumberValid({
+function isToCategoryValid({
   toCategoryNumber,
+  toCategoryName,
   fromCategoryNumber,
-  categoryMap
+  categoryMap,
+  isNewCategory
 }: {
-  toCategoryNumber: number;
+  toCategoryNumber: number | null;
+  toCategoryName: string;
   fromCategoryNumber: number;
   categoryMap: Map<number, CategoryMapEntry>;
-}) {
-  if (isNaN(toCategoryNumber) || !categoryMap.has(toCategoryNumber)) {
-    console.log(`Invalid category number ${toCategoryNumber}.`);
-    return false;
-  }
+  isNewCategory: boolean;
+}): boolean {
+  if (isNewCategory) {
+    // For new categories, check if the name is not empty
+    if (!toCategoryName || toCategoryName.trim() === "") {
+      console.log("Category name cannot be empty.");
+      return false;
+    }
+    
+    // Check if the new category name matches the current category
+    const fromCategoryEntry = categoryMap.get(fromCategoryNumber);
+    if (fromCategoryEntry && fromCategoryEntry.category === toCategoryName.trim()) {
+      console.log("Transaction is already in that category.");
+      return false;
+    }
+    
+    return true;
+  } else {
+    // For existing categories, use the old validation logic
+    if (toCategoryNumber === null || !categoryMap.has(toCategoryNumber)) {
+      console.log(`Invalid category number ${toCategoryNumber}.`);
+      return false;
+    }
 
-  if (fromCategoryNumber === toCategoryNumber) {
-    console.log("Transaction is already in that category.");
-    return false;
-  }
+    if (fromCategoryNumber === toCategoryNumber) {
+      console.log("Transaction is already in that category.");
+      return false;
+    }
 
-  if (!doesCategoryExist(categoryMap, toCategoryNumber)) {
-    return false;
-  }
+    if (!doesCategoryExist(categoryMap, toCategoryNumber)) {
+      return false;
+    }
 
-  return true;
+    return true;
+  }
 }
 
 export async function tuneCategories(summarizedTransactions: SummarizedTransactions): Promise<SummarizedTransactions | null> {
@@ -275,13 +319,30 @@ export async function tuneCategories(summarizedTransactions: SummarizedTransacti
     const transactionTitle = transaction.title;
     const fromCategoryName = categoryEntry.category;
 
-    const toCategoryNumber = await getToCategoryNumber(transactionTitle);
+    const targetCategory = await getTargetCategory(transactionTitle, categoryMap);
 
-    if (!isToCategoryNumberValid({ toCategoryNumber, fromCategoryNumber, categoryMap })) {
+    // If null, it means there was an error (invalid category number), retry
+    if (targetCategory === null) {
       continue;
     }
 
-    const toCategoryName = categoryMap.get(toCategoryNumber)!.category;
+    let toCategoryNumber: number | null;
+    let toCategoryName: string;
+    let isNewCategory: boolean;
+
+    if (targetCategory.isNumber) {
+      toCategoryNumber = targetCategory.categoryNumber;
+      toCategoryName = categoryMap.get(toCategoryNumber)!.category;
+      isNewCategory = false;
+    } else {
+      toCategoryNumber = null;
+      toCategoryName = targetCategory.categoryName.trim();
+      isNewCategory = true;
+    }
+
+    if (!isToCategoryValid({ toCategoryNumber, toCategoryName, fromCategoryNumber, categoryMap, isNewCategory })) {
+      continue;
+    }
 
     changes.push({
       fromCategoryNumber,
@@ -289,9 +350,14 @@ export async function tuneCategories(summarizedTransactions: SummarizedTransacti
       toCategoryNumber,
       transactionTitle,
       fromCategoryName,
-      toCategoryName
+      toCategoryName,
+      isNewCategory
     });
 
-    console.log("OK");
+    if (isNewCategory) {
+      console.log(`OK - New category "${toCategoryName}" will be created.`);
+    } else {
+      console.log("OK");
+    }
   }
 }
