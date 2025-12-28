@@ -3,7 +3,8 @@ import { resolve } from "path";
 import { Readable } from 'stream';
 import * as XLSX from "xlsx/xlsx.mjs";
 import { categorizeTitle } from "./src/utils/categorization.js";
-import { INPUT_FILES_DIRECTORY } from "~/utils/constants.js";
+import { INPUT_FILES_DIRECTORY, OUTPUT_FILES_DIRECTORY } from "~/utils/constants.js";
+import { writeFile } from "~/utils/write_file.js";
 
 // load "fs" for readFile and writeFile support
 XLSX.set_fs(fs);
@@ -119,3 +120,11 @@ function summarizeTransactions(inputCategorizedRows: { [rowNumber: string]: { da
 const summarizedTransactions = summarizeTransactions(categorizedRows);
 
 console.log("\nSummarized transactions:\n\n", summarizedTransactions);
+
+const outputFileLocation = `${OUTPUT_FILES_DIRECTORY}/summarized_transactions.json`;
+
+console.log(`\nWriting to JSON file at ${outputFileLocation}`);
+
+writeFile(outputFileLocation, summarizedTransactions)
+
+console.log(`\nDone.`);

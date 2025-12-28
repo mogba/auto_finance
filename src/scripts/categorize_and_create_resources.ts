@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { resolve } from "path";
 import { categorizeTitle } from "../utils/categorization.js";
 import { INPUT_FILES_DIRECTORY, RESOURCE_FILES_DIRECTORY } from "../utils/constants.js";
+import { writeFile } from "~/utils/write_file.js";
 
 // Read the CSV file
 const csvFilePath = resolve(`${INPUT_FILES_DIRECTORY}/summary_credit.csv`);
@@ -31,18 +32,10 @@ const categories = new Set(categorizedTitles.map(item => item.category));
 const categoriesList = Array.from(categories).sort();
 
 // Write categorized titles to JSON
-fs.writeFileSync(
-  resolve(`${RESOURCE_FILES_DIRECTORY}/categorized_titles.json`),
-  JSON.stringify(categorizedTitles, null, 2),
-  "utf-8"
-);
+writeFile(`${RESOURCE_FILES_DIRECTORY}/categorized_titles.json`, categorizedTitles);
 
 // Write categories to JSON
-fs.writeFileSync(
-  resolve(`${RESOURCE_FILES_DIRECTORY}/categories.json`),
-  JSON.stringify(categoriesList, null, 2),
-  "utf-8"
-);
+writeFile(`${RESOURCE_FILES_DIRECTORY}/categories.json`, categoriesList);
 
 console.log(`Categorized ${categorizedTitles.length} unique titles`);
 console.log(`Created ${categoriesList.length} categories:`, categoriesList.join(", "));
