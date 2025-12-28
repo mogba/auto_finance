@@ -36,7 +36,15 @@ function printCategoryMap(categoryMap: Map<number, CategoryMapEntry>) {
   }
 }
 
-function rebuildCategoryMap(
+function recalculateCategoryAmount(transactions: Transaction[]): number {
+  let amount = 0;
+  for (const transaction of transactions) {
+    amount = Number((((amount * 100) + (transaction.amount * 100)) / 100).toFixed(2));
+  }
+  return amount;
+}
+
+function rebuildSummarizedTransactions(
   summarizedTransactions: {
     [category: string]: {
       category: string;
@@ -45,7 +53,13 @@ function rebuildCategoryMap(
     };
   },
   changes: ChangeRequest[]
-): Map<number, CategoryMapEntry> {
+): {
+  [category: string]: {
+    category: string;
+    amount: number;
+    transactions: Transaction[];
+  };
+} {
   // Create a deep copy of summarizedTransactions
   const modifiedTransactions: {
     [category: string]: {
@@ -102,6 +116,40 @@ function rebuildCategoryMap(
     modifiedTransactions[targetCategory].transactions.push(transaction);
   }
 
+  // Recalculate amounts for all categories
+  const result: {
+    [category: string]: {
+      category: string;
+      amount: number;
+      transactions: Transaction[];
+    };
+  } = {};
+
+  for (const [category, data] of Object.entries(modifiedTransactions)) {
+    if (data.transactions.length > 0) {
+      result[category] = {
+        category: data.category,
+        amount: recalculateCategoryAmount(data.transactions),
+        transactions: data.transactions
+      };
+    }
+  }
+
+  return result;
+}
+
+function rebuildCategoryMap(
+  summarizedTransactions: {
+    [category: string]: {
+      category: string;
+      amount: number;
+      transactions: Transaction[];
+    };
+  },
+  changes: ChangeRequest[]
+): Map<number, CategoryMapEntry> {
+  const modifiedTransactions = rebuildSummarizedTransactions(summarizedTransactions, changes);
+
   // Rebuild category map (only include categories with transactions)
   const categoryMap: Map<number, CategoryMapEntry> = new Map();
   let categoryNumber = 1;
@@ -125,7 +173,13 @@ export async function tuneCategories(summarizedTransactions: {
       amount: number;
       transactions: Transaction[];
   };
-}): Promise<void> {
+}): Promise<{
+  [category: string]: {
+      category: string;
+      amount: number;
+      transactions: Transaction[];
+  };
+} | null> {
   const categoryMap: Map<number, CategoryMapEntry> = new Map();
 
   let categoryNumber = 1;
@@ -159,13 +213,14 @@ export async function tuneCategories(summarizedTransactions: {
     if (input.trim() === '') {
       if (changes.length === 0) {
         rl.close();
-        return;
+        return null;
       } else {
         // Rebuild category map with changes
         const newCategoryMap = rebuildCategoryMap(summarizedTransactions, changes);
         printCategoryMap(newCategoryMap);
         rl.close();
-        return;
+        // Return the modified summarized transactions
+        return rebuildSummarizedTransactions(summarizedTransactions, changes);
       }
     }
 

@@ -13,4 +13,14 @@ writeFile(outputFileLocation, summarizedTransactions)
 console.log(`\nSummarized transactions written to file ${outputFileLocation}.`);
 
 // call the new function here
-await tuneCategories(summarizedTransactions.summarizedTransactions);
+const modifiedSummarizedTransactions = await tuneCategories(summarizedTransactions.summarizedTransactions);
+
+if (modifiedSummarizedTransactions !== null) {
+  const updatedSummarizedTransactions = {
+    totalAmount: summarizedTransactions.totalAmount,
+    summarizedTransactions: modifiedSummarizedTransactions
+  };
+
+  writeFile(outputFileLocation, updatedSummarizedTransactions);
+  console.log(`\nUpdated summarized transactions written to file ${outputFileLocation}.`);
+}
