@@ -1,4 +1,4 @@
-import * as readline from 'readline';
+import { ReadlineInterface } from '~/utils/readline.js';
 
 interface Transaction {
   date: string;
@@ -194,31 +194,22 @@ export async function tuneCategories(summarizedTransactions: {
 
   printCategoryMap(categoryMap);
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  const question = (prompt: string): Promise<string> => {
-    return new Promise((resolve) => {
-      rl.question(prompt, resolve);
-    });
-  };
+  const readlineInterface = new ReadlineInterface();
 
   const changes: ChangeRequest[] = [];
 
   while (true) {
-    const input = await question("\nEnter category-transaction to change (e.g., '1-5') or press Enter to finish: ");
+    const input = await readlineInterface.openQuestion("\nEnter category-transaction to change (e.g., '1-5') or press Enter to finish: ");
 
     if (input.trim() === '') {
       if (changes.length === 0) {
-        rl.close();
+        readlineInterface.closeQuestion();
         return null;
       } else {
         // Rebuild category map with changes
         const newCategoryMap = rebuildCategoryMap(summarizedTransactions, changes);
         printCategoryMap(newCategoryMap);
-        rl.close();
+        readlineInterface.closeQuestion();
         // Return the modified summarized transactions
         return rebuildSummarizedTransactions(summarizedTransactions, changes);
       }
@@ -250,7 +241,7 @@ export async function tuneCategories(summarizedTransactions: {
     const fromCategoryName = categoryEntry.category;
 
     // Ask for target category
-    const targetCategoryInput = await question(`Move transaction "${transactionTitle}" to which category number? `);
+    const targetCategoryInput = await readlineInterface.openQuestion(`Move transaction "${transactionTitle}" to which category number? `);
     const toCategoryNumber = parseInt(targetCategoryInput.trim(), 10);
 
     if (isNaN(toCategoryNumber) || !categoryMap.has(toCategoryNumber)) {
